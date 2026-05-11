@@ -68,3 +68,41 @@ void setup_raw_terminal()
 //ICANON : disable canonical mode
 //ISIG : disable signal generation
 //IEXTEN : disable extended input processing
+
+
+
+//special keys for up,down,left,right
+#define arrow_up 1000
+#define arrow_down 1001
+#define arrow_right 1002
+#define arrow_left 1003
+int read_user_input()
+{
+    int bytes_read;
+    char input_char;
+    while((bytes_read = read(STDIN_FILENO,&input_char,1)) != 1)
+    {
+        if(bytes_read == -1 && errno != EAGAIN)
+        {
+            show_error_and_exit("read");
+        }
+    }
+    if(input_char == '\x1b')
+    {
+        char escape_sequence[3];
+        if(read(STDIN_FILENO,&escape_sequence[0],1) != 1)return '\x1b';
+        if(read(STDIN_FILENO,&escape_sequence[1],1) != 1)return '\x1b';
+        if(escape_sequence[0] == '[')
+        {
+            switch(escape_sequence[1])
+            {
+                case 'A' : return arrow_up;
+                case 'B' : return arrow_down;
+                case 'C' : return arrow_right;
+                case 'D' : return arrow_left;
+            }
+        }
+        return '\x1b';
+    }
+    return input_char;
+}
