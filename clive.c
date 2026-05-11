@@ -106,3 +106,15 @@ int read_user_input()
     }
     return input_char;
 }
+
+void initialize_editor()
+{
+    editor.total_lines = 1;
+    editor.cursor_x = 0;
+    editor.cursor_y = 0;
+    editor.current_mode = normal_mode;
+    editor.command_length = 0;
+    editor.has_unsaved_changes = 0;
+    strcpy(editor.filename,"");
+    strcpy(editor.text_lines[0],"");
+}
