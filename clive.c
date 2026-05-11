@@ -60,3 +60,11 @@ void setup_raw_terminal()
         show_error_and_exit("tcsetattr");
     }
 }
+
+//ICRNL : prevent enter key to convert to new line
+//IXON : disable ctrl + s
+//OPOST : disable output  post processing
+//ECHO : prevent character echoing
+//ICANON : disable canonical mode
+//ISIG : disable signal generation
+//IEXTEN : disable extended input processing
