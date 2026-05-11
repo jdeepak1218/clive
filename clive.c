@@ -26,3 +26,37 @@ typedef struct{
 
 struct termios original_terminal_settings;
 text_editor editor;
+
+
+void show_error_and_exit(const char *msg)
+{
+    perror(msg);
+    exit(1);
+}
+//restore setting
+void restore_terminal_settings()
+{
+    if(tcsetattr(STDIN_FILENO,TCSAFLUSH,&original_terminal_settings) == -1)
+    {
+        show_error_and_exit("tcsetattr");
+    }
+}
+
+void setup_raw_terminal()
+{
+    if(tcgetattr(STDIN_FILENO,&original_terminal_settings) == -1)
+    {
+        show_error_and_exit("tcgetattr");
+    }
+    atexit(restore_terminal_settings);
+    struct termios raw_settings = original_terminal_settings;
+    raw_settings.c_iflag &= ~(ICRNL | IXON);
+    raw_settings.c_oflag &= ~(OPOST); // post process output handling
+    raw_settings.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+    raw_settings.c_cc[VMIN] = 0; // minimum bytes to return
+    raw_settings.c_cc[VTIME] = 1; //timeout : 100ms
+    if(tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw_settings) == -1)
+    {
+        show_error_and_exit("tcsetattr");
+    }
+}
