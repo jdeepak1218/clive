@@ -118,3 +118,51 @@ void initialize_editor()
     strcpy(editor.filename,"");
     strcpy(editor.text_lines[0],"");
 }
+
+void load_file_into_editor(const char *filename)
+{
+    strcpy(editor.filename,filename);
+    FILE *file_pointer = fopen(filename,"r"); // open in read mode
+    if(!file_pointer)
+    {
+        strcpy(editor.text_lines[0],"");
+        editor.total_lines = 1;
+        return;
+    }
+    editor.total_lines = 0;
+    while(fgets(editor.text_lines[editor.total_lines],max_line_length,file_pointer) && editor.total_lines < max_lines)
+    {
+        size_t line_length = strlen(editor.text_lines[editor.total_lines]);
+        if(line_length > 0 && editor.text_lines[editor.total_lines][line_length - 1] == '\n')
+        {
+            editor.text_lines[editor.total_lines][line_length - 1] = '\0';
+        }
+        editor.total_lines++;
+    }
+    if(editor.total_lines == 0)
+    {
+        strcpy(editor.text_lines[0],"");
+        editor.total_lines = 1;
+    }
+    fclose(file_pointer);
+}
+
+void save_current_file()
+{
+    if(strlen(editor.filename) == 0)
+    {
+        return;
+    }
+    FILE *file_pointer = fopen(editor.filename,"w"); // open file in write mode
+    if(!file_pointer)
+    {
+        return;
+    }
+    for(int line_number = 0; line_number < editor.total_lines ; line_number++)
+    {
+        fprintf(file_pointer,"%s\n",editor.text_lines[line_number]);
+    }
+    fclose(file_pointer);
+    editor.has_unsaved_changes = 0;
+}
+
