@@ -244,3 +244,52 @@ void save_current_file()
                 break;
         }
     }
+
+
+void execute_command()
+{
+    editor.command_buffer[editor.command_length] = '\0';
+    if(strcmp(editor.command_buffer,"q") == 0)
+    {
+        if(editor.has_unsaved_changes)
+        {
+            editor.current_mode = normal_mode;
+            editor.command_length = 0;
+            return;
+        }
+        clear_screen_and_exit();
+    }
+    else if(strcmp(editor.command_buffer,"q!") == 0) // force quit
+    {
+        clear_screen_and_exit();
+    }
+    else if(strcmp(editor.command_buffer,"w") == 0)  //save
+    {
+        if(strlen(editor.filename) > 0)
+        {
+            save_current_file();
+        }
+    }
+    else if(strcmp(editor.command_buffer,"wq") == 0)
+    {
+        if(strlen(editor.filename) > 0)
+        {
+            save_current_file();
+        }
+        clear_screen_and_exit();
+    }
+    else if(strncmp(editor.command_buffer,"w ",2) == 0)
+    {
+        strcpy(editor.filename,editor.command_buffer + 2);
+        save_current_file();
+    }
+    editor.current_mode = normal_mode;
+    editor.command_length = 0;
+}
+
+void clear_screen_and_exit()
+{
+    write(STDOUT_FILENO, "\x1b[2J", 4);  // Clear screen
+    write(STDOUT_FILENO, "\x1b[H", 3);
+    exit(0);
+}
