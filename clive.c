@@ -166,3 +166,51 @@ void save_current_file()
     editor.has_unsaved_changes = 0;
 }
 
+
+    void insert_character_at_cursor(char character)
+    {
+        int current_line_length = strlen(editor.text_lines[editor.cursor_y]);
+        if(current_line_length >= max_line_length - 1)return;
+        memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x + 1],&editor.text_lines[editor.cursor_y][editor.cursor_x],current_line_length - editor.cursor_x + 1);
+        editor.text_lines[editor.cursor_y][editor.cursor_x] = character;
+        editor.cursor_x++;
+        editor.has_unsaved_changes = 1;
+    }
+
+    void split_line_at_cursor()
+    {
+        if(editor.total_lines >= max_lines)return;
+        for(int line_number = editor.total_lines ; line_number > editor.cursor_y  + 1; line_number--)
+        {
+            strcpy(editor.text_lines[line_number],editor.text_lines[line_number - 1]);
+        }
+        strcpy(editor.text_lines[editor.cursor_y + 1],&editor.text_lines[editor.cursor_y][editor.cursor_x]);
+        editor.text_lines[editor.cursor_y][editor.cursor_x] = '\0';
+        editor.cursor_y++;
+        editor.cursor_x = 0;
+        editor.total_lines++;
+        editor.has_unsaved_changes = 1;
+    }
+
+    void delete_character_before_cursor()
+    {
+        if(editor.cursor_x == 0 && editor.cursor_y == 0)return;
+        if(editor.cursor_x > 0)
+        {
+            int current_line_length = strlen(editor.text_lines[editor.cursor_y]);
+            memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x - 1],&editor.text_lines[editor.cursor_y][editor.cursor_x],current_line_length - editor.cursor_x + 1);
+            editor.cursor_x--;
+        }
+        else
+        {
+            editor.cursor_y--;
+            editor.cursor_x = strlen(editor.text_lines[editor.cursor_y]);
+            strcat(editor.text_lines[editor.cursor_y],editor.text_lines[editor.cursor_y + 1]);
+            for(int line_number = editor.cursor_y + 1 ; line_number < editor.total_lines - 1; line_number++)
+            {
+                strcpy(editor.text_lines[line_number],editor.text_lines[line_number + 1]);
+            }
+            editor.total_lines--;
+        }
+        editor.has_unsaved_changes = 1;
+    }
