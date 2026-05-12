@@ -214,3 +214,33 @@ void save_current_file()
         }
         editor.has_unsaved_changes = 1;
     }
+
+    void handle_cursor_movement(int direction_key)
+    {
+        int current_line_length = strlen(editor.text_lines[editor.cursor_y]);
+        switch(direction_key)
+        {
+            case arrow_left:
+                if(editor.cursor_x > 0)editor.cursor_x--;
+                break;
+            case arrow_down:
+                if(editor.cursor_y < editor.total_lines - 1)
+                {
+                    editor.cursor_y++;
+                    current_line_length = strlen(editor.text_lines[editor.cursor_y]);
+                    if(editor.cursor_x > current_line_length) editor.cursor_x = current_line_length;
+                }
+                break;
+            case arrow_right:
+                if(editor.cursor_x < current_line_length)editor.cursor_x++;
+                break;
+            case arrow_up:
+                if(editor.cursor_y > 0)
+                {
+                    editor.cursor_y--;
+                    current_line_length = strlen(editor.text_lines[editor.cursor_y]);
+                    if(editor.cursor_x > current_line_length) editor.cursor_x = current_line_length;
+                }
+                break;
+        }
+    }
