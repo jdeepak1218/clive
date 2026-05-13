@@ -24,12 +24,15 @@ typedef struct {
 	int has_unsaved_changes; //flag for file 0 = saved 1 = modified
 	char clipboard[max_line_length];
 	int has_clipboard;  //(0 -> empty 1 -> has something)
+	char last_search[256];
 } text_editor;
 
 struct termios original_terminal_settings;
 text_editor editor;
 
 void clear_screen_and_exit();
+void search_forward_from(int start_y, int start_x);
+void search_backward_from(int start_y, int start_x);
 void show_error_and_exit(const char *msg)
 {
 	perror(msg);
@@ -124,6 +127,7 @@ void initialize_editor()
 	strcpy(editor.filename,"");
 	strcpy(editor.text_lines[0],"");
 	editor.has_clipboard = 0;
+	editor.last_search[0] = '\0';
 }
 
 void load_file_into_editor(const char *filename)
@@ -262,41 +266,29 @@ void clear_screen_and_exit()
 void execute_command()
 {
 	editor.command_buffer[editor.command_length] = '\0';
-    if(editor.command_buffer[0] == '/') 
-    {
-        char *query = editor.command_buffer + 1; 
-        if (strlen(query) == 0) 
-        {
-            editor.current_mode = normal_mode;
-            editor.command_length = 0;
-            return;
-        }
-        for (int y = editor.cursor_y; y < editor.total_lines; y++) 
-        {
-            char *match;
-            
-            if (y == editor.cursor_y) 
-            {
-                match = strstr(editor.text_lines[y] + editor.cursor_x + 1, query);
-            } 
-            else 
-            {
-                match = strstr(editor.text_lines[y], query);
-            }
-            
-            if (match != NULL) 
-            {
-                editor.cursor_y = y;
-                editor.cursor_x = match - editor.text_lines[y];
-                editor.current_mode = normal_mode;
-                editor.command_length = 0;
-                return;
-            }
-        }
-        editor.current_mode = normal_mode;
-        editor.command_length = 0;
-        return;
-    }
+	if (editor.command_buffer[0] == '/' || editor.command_buffer[0] == '?')
+	{
+		char *query = editor.command_buffer + 1;
+		int is_backward = (editor.command_buffer[0] == '?');
+		if (strlen(query) == 0)
+		{
+			editor.current_mode = normal_mode;
+			editor.command_length = 0;
+			return;
+		}
+		strcpy(editor.last_search, query);
+		if (is_backward)
+		{
+			search_backward_from(editor.cursor_y, editor.cursor_x);
+		}
+		else
+		{
+			search_forward_from(editor.cursor_y, editor.cursor_x);
+		}
+		editor.current_mode = normal_mode;
+		editor.command_length = 0;
+		return;
+	}
 	if(strcmp(editor.command_buffer,"q") == 0)
 	{
 		if(editor.has_unsaved_changes)
@@ -410,7 +402,65 @@ void refresh_display()
 	write(STDOUT_FILENO,cursor_positions,strlen(cursor_positions));
 }
 
-
+void search_forward_from(int start_y, int start_x)
+{
+	for (int y = start_y; y < editor.total_lines; y++)
+	{
+		char *match;
+		if (y == start_y)
+		{
+			match = strstr(editor.text_lines[y] + start_x + 1, editor.last_search);
+		}
+		else
+		{
+			match = strstr(editor.text_lines[y], editor.last_search);
+		}
+		if (match != NULL)
+		{
+			editor.cursor_y = y;
+			editor.cursor_x = match - editor.text_lines[y];
+			return;
+		}
+	}
+}
+void search_backward_from(int start_y, int start_x)
+{
+	for (int y = start_y; y >= 0; y--)
+	{
+		char *match = NULL;
+		if (y == start_y)
+		{
+			char temp[max_line_length];
+			strncpy(temp, editor.text_lines[y], start_x);
+			temp[start_x] = '\0';
+			char *last_match = NULL;
+			char *current = temp;
+			while ((match = strstr(current, editor.last_search)) != NULL)
+			{
+				last_match = match;
+				current = match + 1;
+			}
+			match = last_match;
+		}
+		else
+		{
+			char *last_match = NULL;
+			char *current = editor.text_lines[y];
+			while ((match = strstr(current, editor.last_search)) != NULL)
+			{
+				last_match = match;
+				current = match + 1;
+			}
+			match = last_match;
+		}
+		if (match != NULL)
+		{
+			editor.cursor_y = y;
+			editor.cursor_x = match - editor.text_lines[y];
+			return;
+		}
+	}
+}
 int main(int argument_count, char *argument_values[]) {
 	setup_raw_terminal();
 	initialize_editor();
@@ -429,12 +479,12 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				editor.current_mode = insert_mode;
 			}
-            else if (user_input == '/') 
-            {
-                editor.current_mode = command_mode;
-                editor.command_buffer[0] = '/';
-                editor.command_length = 1;
-            }
+			else if (user_input == '/')
+			{
+				editor.current_mode = command_mode;
+				editor.command_buffer[0] = '/';
+				editor.command_length = 1;
+			}
 			else if (user_input == ':')
 			{
 				editor.current_mode = command_mode;
@@ -456,6 +506,43 @@ int main(int argument_count, char *argument_values[]) {
 			else if (user_input == arrow_right || user_input == 'l')
 			{
 				handle_cursor_movement(arrow_right);
+			}
+			else if (user_input == '0')
+			{
+				editor.cursor_x = 0;
+			}
+			else if (user_input == '$')
+			{
+				editor.cursor_x = strlen(editor.text_lines[editor.cursor_y]);
+			}
+			else if (user_input == 'O')
+			{
+				if (editor.total_lines < max_lines)
+				{
+					for (int line_number = editor.total_lines; line_number > editor.cursor_y; line_number--)
+					{
+						strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);
+					}
+					strcpy(editor.text_lines[editor.cursor_y], "");
+					editor.cursor_x = 0;
+					editor.total_lines++;
+					editor.current_mode = insert_mode;
+					editor.has_unsaved_changes = 1;
+				}
+			}
+			else if (user_input == 'n')
+			{
+				if (strlen(editor.last_search) > 0)
+				{
+					search_forward_from(editor.cursor_y, editor.cursor_x);
+				}
+			}
+			else if (user_input == 'N')
+			{
+				if (strlen(editor.last_search) > 0)
+				{
+					search_backward_from(editor.cursor_y, editor.cursor_x);
+				}
 			}
 			else if (user_input == 'd')
 			{
@@ -495,13 +582,13 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				if (editor.has_clipboard && editor.total_lines < max_lines)
 				{
-                    for (int line_number = editor.total_lines; line_number > editor.cursor_y + 1; line_number--)
+					for (int line_number = editor.total_lines; line_number > editor.cursor_y + 1; line_number--)
 					{
 						strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);
 					}
 					strcpy(editor.text_lines[editor.cursor_y + 1], editor.clipboard);
 					editor.total_lines++;
-					editor.cursor_y++;  
+					editor.cursor_y++;
 					editor.cursor_x = 0;
 					editor.has_unsaved_changes = 1;
 				}
