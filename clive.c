@@ -245,6 +245,12 @@ void save_current_file()
         }
     }
 
+void clear_screen_and_exit()
+{
+    write(STDOUT_FILENO, "\x1b[2J", 4);  // Clear screen
+    write(STDOUT_FILENO, "\x1b[H", 3);
+    exit(0);
+}
 
 void execute_command()
 {
@@ -287,12 +293,6 @@ void execute_command()
     editor.command_length = 0;
 }
 
-void clear_screen_and_exit()
-{
-    write(STDOUT_FILENO, "\x1b[2J", 4);  // Clear screen
-    write(STDOUT_FILENO, "\x1b[H", 3);
-    exit(0);
-}
 void get_terminal_dimensions(int *rows,int *columns)
 {
     struct winsize window_size;
