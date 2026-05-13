@@ -22,6 +22,8 @@ typedef struct {
 	char command_buffer[256];
 	int command_length;
 	int has_unsaved_changes; //flag for file 0 = saved 1 = modified
+	char clipboard[max_line_length];
+	int has_clipboard;  //(0 -> empty 1 -> has something)
 } text_editor;
 
 struct termios original_terminal_settings;
@@ -121,6 +123,7 @@ void initialize_editor()
 	editor.has_unsaved_changes = 0;
 	strcpy(editor.filename,"");
 	strcpy(editor.text_lines[0],"");
+	editor.has_clipboard = 0;
 }
 
 void load_file_into_editor(const char *filename)
@@ -439,6 +442,26 @@ int main(int argument_count, char *argument_values[]) {
 					strcpy(editor.text_lines[0], "");
 					editor.cursor_x = 0;
 					editor.cursor_y = 0;
+					editor.has_unsaved_changes = 1;
+				}
+			}
+			else if (user_input == 'y')
+			{
+				strcpy(editor.clipboard, editor.text_lines[editor.cursor_y]);
+				editor.has_clipboard = 1;
+			}
+			else if (user_input == 'p')
+			{
+				if (editor.has_clipboard && editor.total_lines < max_lines)
+				{
+                    for (int line_number = editor.total_lines; line_number > editor.cursor_y + 1; line_number--)
+					{
+						strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);
+					}
+					strcpy(editor.text_lines[editor.cursor_y + 1], editor.clipboard);
+					editor.total_lines++;
+					editor.cursor_y++;  
+					editor.cursor_x = 0;
 					editor.has_unsaved_changes = 1;
 				}
 			}
