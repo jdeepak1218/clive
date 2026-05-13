@@ -262,6 +262,41 @@ void clear_screen_and_exit()
 void execute_command()
 {
 	editor.command_buffer[editor.command_length] = '\0';
+    if(editor.command_buffer[0] == '/') 
+    {
+        char *query = editor.command_buffer + 1; 
+        if (strlen(query) == 0) 
+        {
+            editor.current_mode = normal_mode;
+            editor.command_length = 0;
+            return;
+        }
+        for (int y = editor.cursor_y; y < editor.total_lines; y++) 
+        {
+            char *match;
+            
+            if (y == editor.cursor_y) 
+            {
+                match = strstr(editor.text_lines[y] + editor.cursor_x + 1, query);
+            } 
+            else 
+            {
+                match = strstr(editor.text_lines[y], query);
+            }
+            
+            if (match != NULL) 
+            {
+                editor.cursor_y = y;
+                editor.cursor_x = match - editor.text_lines[y];
+                editor.current_mode = normal_mode;
+                editor.command_length = 0;
+                return;
+            }
+        }
+        editor.current_mode = normal_mode;
+        editor.command_length = 0;
+        return;
+    }
 	if(strcmp(editor.command_buffer,"q") == 0)
 	{
 		if(editor.has_unsaved_changes)
@@ -394,6 +429,12 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				editor.current_mode = insert_mode;
 			}
+            else if (user_input == '/') 
+            {
+                editor.current_mode = command_mode;
+                editor.command_buffer[0] = '/';
+                editor.command_length = 1;
+            }
 			else if (user_input == ':')
 			{
 				editor.current_mode = command_mode;
