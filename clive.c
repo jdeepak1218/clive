@@ -293,3 +293,77 @@ void clear_screen_and_exit()
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
 }
+void get_terminal_dimensions(int *rows,int *columns)
+{
+    struct winsize window_size;
+    if(ioctl(STDOUT_FILENO,TIOCGWINSZ,&window_size) == -1 || window_size.ws_col == 0)
+    {
+        *rows = 24;
+        *columns = 80;
+    }
+    else
+    {
+        *rows = window_size.ws_row;
+        *columns = window_size.ws_col;
+    }
+}
+
+void refresh_display()
+{
+    int terminal_rows,terminal_columns;
+    get_terminal_dimensions(&terminal_rows,&terminal_columns);
+    write(STDOUT_FILENO,"\x1b[2J",4); // clear screen
+    write(STDOUT_FILENO,"\x1b[H",3); // move cursor to top most
+    int visible_rows = terminal_rows - 2;
+    for(int row = 0 ; row < visible_rows ; row++)
+    {
+        if(row < editor.total_lines)
+        {
+            char line_info[32];
+            int info_length = snprintf(line_info,sizeof(line_info),"%4d ",row + 1); 
+            write(STDOUT_FILENO,line_info,info_length);
+            write(STDOUT_FILENO,editor.text_lines[row],strlen(editor.text_lines[row]));
+        }
+        else
+        {
+            write(STDOUT_FILENO,"   ~",4);
+        }
+        write(STDOUT_FILENO,"\x1b[K",3);
+        if(row < visible_rows - 1)
+        {
+            write(STDOUT_FILENO,"\r\n",2);
+        }
+    }
+    char position_buffer[32];
+    snprintf(position_buffer,sizeof(position_buffer),"\x1b[%d;1H",terminal_rows - 1);
+    write(STDOUT_FILENO,position_buffer,strlen(position_buffer));
+    write(STDOUT_FILENO,"\x1b[7m",4); // invert color
+    char status_line[512];
+    int status_length = snprintf(status_line,sizeof(status_line)," %s %s",strlen(editor.filename) > 0 ? editor.filename : "[No name]",editor.has_unsaved_changes ? "[+]" : "");
+    char position_info[32];
+    snprintf(position_info,sizeof(position_info),"%d,%d ",editor.cursor_y + 1,editor.cursor_x + 1); // added comma and trailing space
+    int padding = terminal_columns - status_length - strlen(position_info);
+    if(padding < 0)padding = 0;
+    write(STDOUT_FILENO,status_line,status_length);
+    for(int i = 0 ; i < padding ; i++)
+    {
+        write(STDOUT_FILENO," ",1);
+    }
+    write(STDOUT_FILENO,position_info,strlen(position_info)); 
+    write(STDOUT_FILENO,"\x1b[m",3); // normal colors
+    snprintf(position_buffer,sizeof(position_buffer),"\x1b[%d;1H",terminal_rows);
+    write(STDOUT_FILENO,position_buffer,strlen(position_buffer));
+    if(editor.current_mode == command_mode)
+    {
+        write(STDOUT_FILENO,":",1);
+        write(STDOUT_FILENO,editor.command_buffer,editor.command_length);
+    }
+    else if(editor.current_mode == insert_mode)
+    {
+        write(STDOUT_FILENO,"-- INSERT --",12);
+    }
+    write(STDOUT_FILENO,"\x1b[K",3);
+    char cursor_positions[32];
+    snprintf(cursor_positions,sizeof(cursor_positions),"\x1b[%d;%dH",editor.cursor_y + 1,editor.cursor_x + 6); 
+    write(STDOUT_FILENO,cursor_positions,strlen(cursor_positions));
+}
