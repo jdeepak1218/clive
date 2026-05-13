@@ -28,32 +28,67 @@ Building a text editor from scratch strips away all abstractions and forces you 
 ### Core Functionality
 - Open and edit existing files or create new ones
 - Line-based text buffer supporting up to 1000 lines
-- Cursor movement with arrow keys in all modes
+- Multiple cursor movement options (arrow keys and Vim-style hjkl)
 - Line numbers displayed alongside your text
 - Status bar showing filename, modification status, and cursor position
 - Unsaved changes indicator to prevent accidental data loss
+- Clipboard support for copying and pasting lines
+- Bidirectional text search with pattern matching
+- Quick line navigation (jump to start/end of line)
 
 ### Normal Mode Commands
+
+#### Navigation
+- `h` or `←` - Move cursor left
+- `j` or `↓` - Move cursor down
+- `k` or `↑` - Move cursor up
+- `l` or `→` - Move cursor right
+- `0` - Jump to beginning of line
+- `$` - Jump to end of line
+
+#### Editing
 - `i` - Enter insert mode at cursor position
-- `o` - Open a new line below and enter insert mode
+- `o` - Open a new line below current line and enter insert mode
+- `O` - Open a new line above current line and enter insert mode
 - `x` - Delete character under cursor
+- `d` - Delete current line
+
+#### Copy and Paste
+- `y` - Yank (copy) current line to clipboard
+- `p` - Put (paste) clipboard content below current line
+
+#### Search
+- `/` - Search forward (type search term and press Enter)
+- `?` - Search backward (type search term and press Enter)
+- `n` - Jump to next search match (forward)
+- `N` - Jump to previous search match (backward)
+
+#### Mode Switching
 - `:` - Enter command mode
-- Arrow keys - Move cursor
 
 ### Insert Mode Commands
 - `Esc` - Return to normal mode
-- `Enter` - Create new line
+- `Enter` - Create new line at cursor position
 - `Backspace` - Delete character before cursor
-- Arrow keys - Navigate while editing
+- `h/j/k/l` or Arrow keys - Navigate while editing
 - Any printable character - Insert at cursor
 
 ### Command Mode
+
+#### File Operations
 - `:w` - Save current file
 - `:w filename` - Save as new filename
+- `:wq` - Save and quit
 - `:q` - Quit (blocked if unsaved changes exist)
 - `:q!` - Force quit without saving
-- `:wq` - Save and quit
+
+#### Search Operations
+- `/searchterm` - Search forward for "searchterm"
+- `?searchterm` - Search backward for "searchterm"
+
+#### General
 - `Esc` - Cancel command and return to normal mode
+- `Backspace` - Delete character in command buffer
 
 ## How to Build and Run
 
@@ -67,20 +102,7 @@ Building a text editor from scratch strips away all abstractions and forces you 
 gcc -o clive clive.c -Wall -Wextra
 ```
 
-Or create a Makefile:
-```makefile
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c99
-TARGET = clive
-
-$(TARGET): clive.c
-	$(CC) $(CFLAGS) -o $(TARGET) clive.c
-
-clean:
-	rm -f $(TARGET)
-```
-
-Then build with:
+Or use the provided Makefile:
 ```bash
 make
 ```
@@ -94,14 +116,108 @@ make
 ./clive
 ```
 
+## Complete Command Reference
+
+### Normal Mode
+
+| Command | Action | Example Use Case |
+|---------|--------|------------------|
+| `h` | Move left | Navigate character by character |
+| `j` | Move down | Navigate line by line |
+| `k` | Move up | Navigate line by line |
+| `l` | Move right | Navigate character by character |
+| `←↓↑→` | Arrow key movement | Alternative to hjkl |
+| `0` | Jump to line start | Quick navigation to beginning |
+| `$` | Jump to line end | Quick navigation to end |
+| `i` | Enter insert mode | Start typing at cursor |
+| `o` | Open line below | Add new line and start typing |
+| `O` | Open line above | Insert line before current |
+| `x` | Delete character | Remove single character |
+| `d` | Delete line | Remove entire line |
+| `y` | Yank (copy) line | Copy line to clipboard |
+| `p` | Put (paste) line | Paste clipboard below |
+| `/text` | Search forward | Find "text" going down |
+| `?text` | Search backward | Find "text" going up |
+| `n` | Next match | Jump to next search result |
+| `N` | Previous match | Jump to previous search result |
+| `:` | Command mode | Execute editor commands |
+
+### Insert Mode
+
+| Command | Action |
+|---------|--------|
+| `Esc` | Exit to normal mode |
+| `Enter` | New line at cursor |
+| `Backspace` | Delete previous character |
+| `Arrow keys` | Navigate while inserting |
+| `h/j/k/l` | Navigate while inserting |
+| Any character | Insert at cursor position |
+
+### Command Mode
+
+| Command | Action | Notes |
+|---------|--------|-------|
+| `:w` | Write (save) file | Requires filename |
+| `:w filename` | Save as filename | Sets new filename |
+| `:q` | Quit editor | Blocked if unsaved changes |
+| `:q!` | Force quit | Discards unsaved changes |
+| `:wq` | Write and quit | Save then exit |
+| `/pattern` | Search forward | Moves cursor to match |
+| `?pattern` | Search backward | Moves cursor to match |
+| `Esc` | Cancel command | Return to normal mode |
+
 ## Usage Tips
 
 1. Start in normal mode - you cannot type immediately
 2. Press `i` to enter insert mode and start typing
-3. Press `Esc` to return to normal mode
+3. Press `Esc` to return to normal mode from any other mode
 4. Use `:w` frequently to save your work
 5. The status bar shows `[+]` when you have unsaved changes
 6. Line numbers help you track your position in the file
+7. Use `h`, `j`, `k`, `l` for Vim-style navigation or arrow keys if you prefer
+8. Search with `/` for forward search or `?` for backward search
+9. After searching, use `n` to jump to next match or `N` for previous match
+10. Copy a line with `y` and paste it below with `p`
+11. Delete entire lines quickly with `d`
+12. Use `0` and `$` to jump to line boundaries instantly
+
+## Common Workflows
+
+### Editing a File
+```bash
+./clive myfile.txt    # Open file
+i                     # Enter insert mode
+# Type your content
+Esc                   # Return to normal mode
+:w                    # Save
+:q                    # Quit
+```
+
+### Searching and Replacing Text
+```bash
+/searchterm           # Find text forward
+n                     # Jump to next occurrence
+i                     # Enter insert mode to edit
+# Make your changes
+Esc                   # Back to normal mode
+n                     # Continue to next match
+```
+
+### Copying and Rearranging Lines
+```bash
+y                     # Yank (copy) current line
+j                     # Move down
+p                     # Paste below current line
+d                     # Delete a line you don't need
+```
+
+### Quick Navigation
+```bash
+0                     # Jump to start of line
+$                     # Jump to end of line
+k k k                 # Move up 3 lines
+j j                   # Move down 2 lines
+```
 
 ## Current Limitations
 
@@ -109,20 +225,22 @@ make
 - Maximum 256 characters per line
 - No syntax highlighting
 - No undo/redo functionality
-- No search and replace
+- Clipboard only holds one line at a time
 - No visual selection mode
-- No copy/paste between lines
+- No multi-line copy/paste operations
 - No split windows or tabs
 - No configuration file
+- Search wraps around but doesn't indicate when it does
 
 ## Future Enhancements
 
 ### High Priority
 - **Undo/Redo**: Implement a command history stack to reverse changes
-- **Search**: Add `/` command to search for text patterns
-- **Copy/Paste**: Implement yank and put operations (y, p, d, dd)
-- **Visual Mode**: Select and manipulate blocks of text
-- **Line Operations**: Delete line (dd), change line (cc), duplicate line
+- **Search and Replace**: Add `:s/old/new/` command for text substitution
+- **Visual Mode**: Select and manipulate blocks of text (v, V commands)
+- **Multi-line Clipboard**: Copy and paste multiple lines (dd, yy with counts)
+- **Search Wrap Indicator**: Show message when search wraps around file
+- **Regex Search**: Support regular expressions in search patterns
 
 ### Medium Priority
 - **Syntax Highlighting**: Color coding for common programming languages
