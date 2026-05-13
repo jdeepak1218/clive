@@ -413,6 +413,35 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				handle_cursor_movement(arrow_right);
 			}
+			else if (user_input == 'd')
+			{
+				if (editor.total_lines > 1)
+				{
+					for (int line_number = editor.cursor_y; line_number < editor.total_lines - 1; line_number++)
+					{
+						strcpy(editor.text_lines[line_number], editor.text_lines[line_number + 1]);
+					}
+					editor.total_lines--;
+					if (editor.cursor_y >= editor.total_lines)
+					{
+						editor.cursor_y = editor.total_lines - 1;
+					}
+					int new_line_length = strlen(editor.text_lines[editor.cursor_y]);
+					if (editor.cursor_x > new_line_length)
+					{
+						editor.cursor_x = new_line_length;
+					}
+
+					editor.has_unsaved_changes = 1;
+				}
+				else
+				{
+					strcpy(editor.text_lines[0], "");
+					editor.cursor_x = 0;
+					editor.cursor_y = 0;
+					editor.has_unsaved_changes = 1;
+				}
+			}
 			else if (user_input == 'x')
 			{
 				if (editor.cursor_x < (int)strlen(editor.text_lines[editor.cursor_y]))
