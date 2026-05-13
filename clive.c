@@ -367,3 +367,107 @@ void refresh_display()
     snprintf(cursor_positions,sizeof(cursor_positions),"\x1b[%d;%dH",editor.cursor_y + 1,editor.cursor_x + 6); 
     write(STDOUT_FILENO,cursor_positions,strlen(cursor_positions));
 }
+
+
+int main(int argument_count, char *argument_values[]) {
+    setup_raw_terminal();
+    initialize_editor();
+    if (argument_count >= 2) 
+    {
+        load_file_into_editor(argument_values[1]);
+    }
+    while (1) 
+    {
+        refresh_display();
+        int user_input = read_user_input();
+        
+        if (editor.current_mode == normal_mode) 
+        {
+            if (user_input == 'i') 
+            {
+                editor.current_mode = insert_mode;
+            } 
+            else if (user_input == ':') 
+            {
+                editor.current_mode = command_mode;
+                editor.command_length = 0;
+            } 
+            else if (user_input == arrow_left || user_input == arrow_down || user_input == arrow_up || user_input == arrow_right) 
+            {
+                handle_cursor_movement(user_input);
+            } 
+            else if (user_input == 'x') 
+            {
+                if (editor.cursor_x < strlen(editor.text_lines[editor.cursor_y])) 
+                {
+                    memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x], 
+                            &editor.text_lines[editor.cursor_y][editor.cursor_x + 1], 
+                            strlen(editor.text_lines[editor.cursor_y]) - editor.cursor_x);
+                    editor.has_unsaved_changes = 1;
+                }
+            } 
+            else if (user_input == 'o') 
+            {
+                if (editor.total_lines < max_lines) 
+                {
+                    for (int line_number = editor.total_lines; line_number > editor.cursor_y + 1; line_number--) 
+                    {
+                        strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);
+                    }
+                    strcpy(editor.text_lines[editor.cursor_y + 1], "");
+                    editor.cursor_y++;
+                    editor.cursor_x = 0;
+                    editor.total_lines++;
+                    editor.current_mode = insert_mode;
+                    editor.has_unsaved_changes = 1;
+                }
+            }
+        } 
+        else if (editor.current_mode == insert_mode) 
+        {
+            if (user_input == '\x1b') 
+            {
+                editor.current_mode = normal_mode;
+                if (editor.cursor_x > 0) editor.cursor_x--;
+            } 
+            else if (user_input == '\r') 
+            {
+                split_line_at_cursor();
+            } 
+            else if (user_input == 127 || user_input == ctrl_key('h')) 
+            {
+                delete_character_before_cursor();
+            } 
+            else if (user_input == arrow_left || user_input == arrow_down || user_input == arrow_up || user_input == arrow_right) 
+            {
+                handle_cursor_movement(user_input);
+            } 
+            else if (!iscntrl(user_input)) 
+            {
+                insert_character_at_cursor(user_input);
+            }
+        } 
+        else if (editor.current_mode == command_mode) 
+        {
+            if (user_input == '\x1b') 
+            {
+                editor.current_mode = normal_mode;
+                editor.command_length = 0;
+            } 
+            else if (user_input == '\r') 
+            {
+                execute_command();
+            } 
+            else if (user_input == 127 || user_input == ctrl_key('h')) 
+            {
+                if (editor.command_length > 0) editor.command_length--;
+            } 
+            else if (!iscntrl(user_input) && editor.command_length < sizeof(editor.command_buffer) - 1) 
+            {
+                editor.command_buffer[editor.command_length++] = user_input;
+            }
+        }
+    }
+    
+    return 0;
+}
