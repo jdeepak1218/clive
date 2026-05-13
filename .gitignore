@@ -1,0 +1,25 @@
+# Compiled binary
+clive
+clive.exe
+
+# Object files
+*.o
+*.obj
+
+# Backup files
+*~
+*.bak
+*.swp
+*.swo
+
+# Test files you don't want to track
+*.tmp
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
