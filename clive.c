@@ -485,6 +485,12 @@ int main(int argument_count, char *argument_values[]) {
 				editor.command_buffer[0] = '/';
 				editor.command_length = 1;
 			}
+            else if (user_input == '?')  // ← ADD THIS
+            {
+                editor.current_mode = command_mode;
+                editor.command_buffer[0] = '?';
+                editor.command_length = 1;
+            }
 			else if (user_input == ':')
 			{
 				editor.current_mode = command_mode;

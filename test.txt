@@ -1,8 +1,5 @@
-Hello, this is a test file for clive.
-
-It demonstrates:
-- Line numbers on the left
-- Multiple lines of text
-- Basic file loading
-
-Try editing this file and saving with :w
+Hello world
+This is a test file for clive
+Line three here
+Another line with Hello in it
+Final line
