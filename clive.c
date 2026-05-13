@@ -27,7 +27,7 @@ typedef struct{
 struct termios original_terminal_settings;
 text_editor editor;
 
-
+void clear_screen_and_exit();   
 void show_error_and_exit(const char *msg)
 {
     perror(msg);
@@ -398,7 +398,7 @@ int main(int argument_count, char *argument_values[]) {
             } 
             else if (user_input == 'x') 
             {
-                if (editor.cursor_x < strlen(editor.text_lines[editor.cursor_y])) 
+                if (editor.cursor_x < (int)strlen(editor.text_lines[editor.cursor_y])) 
                 {
                     memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x], 
                             &editor.text_lines[editor.cursor_y][editor.cursor_x + 1], 
@@ -462,7 +462,7 @@ int main(int argument_count, char *argument_values[]) {
             {
                 if (editor.command_length > 0) editor.command_length--;
             } 
-            else if (!iscntrl(user_input) && editor.command_length < sizeof(editor.command_buffer) - 1) 
+            else if (!iscntrl(user_input) && editor.command_length < (int)sizeof(editor.command_buffer) - 1) 
             {
                 editor.command_buffer[editor.command_length++] = user_input;
             }
