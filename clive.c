@@ -29,6 +29,8 @@ typedef struct {
 	char clipboard[max_line_length];
 	int has_clipboard;  //(0 -> empty 1 -> has something)
 	char last_search[256];
+	char status_message[256];
+	int clear_status_on_next_key;
 } text_editor;
 
 struct termios original_terminal_settings;
@@ -132,6 +134,8 @@ void initialize_editor()
 	strcpy(editor.text_lines[0],"");
 	editor.has_clipboard = 0;
 	editor.last_search[0] = '\0';
+	editor.status_message[0] = '\0';
+	editor.clear_status_on_next_key = 0;
 }
 
 void load_file_into_editor(const char *filename)
@@ -162,16 +166,16 @@ void load_file_into_editor(const char *filename)
 	fclose(file_pointer);
 }
 
-void save_current_file()
+int save_current_file()
 {
 	if(strlen(editor.filename) == 0)
 	{
-		return;
+		return -1;
 	}
 	FILE *file_pointer = fopen(editor.filename,"w"); // open file in write mode
 	if(!file_pointer)
 	{
-		return;
+		return -1;
 	}
 	for(int line_number = 0; line_number < editor.total_lines ; line_number++)
 	{
@@ -179,6 +183,7 @@ void save_current_file()
 	}
 	fclose(file_pointer);
 	editor.has_unsaved_changes = 0;
+	return 0;
 }
 
 
@@ -336,23 +341,54 @@ void execute_command()
 	}
 	else if(strcmp(editor.command_buffer,"w") == 0)  //save
 	{
-		if(strlen(editor.filename) > 0)
+		if(strlen(editor.filename) == 0)
 		{
-			save_current_file();
+			snprintf(editor.status_message, sizeof(editor.status_message), "No file name");
 		}
+		else if (save_current_file() != 0)
+		{
+			snprintf(editor.status_message, sizeof(editor.status_message),
+			         "Can't open \"%s\" for writing", editor.filename);
+		}
+		else
+		{
+			snprintf(editor.status_message, sizeof(editor.status_message),
+			         "\"%s\" saved", editor.filename);
+		}
+		editor.clear_status_on_next_key = 1;
 	}
 	else if(strcmp(editor.command_buffer,"wq") == 0)
 	{
-		if(strlen(editor.filename) > 0)
+		if(strlen(editor.filename) == 0)
 		{
-			save_current_file();
+			snprintf(editor.status_message, sizeof(editor.status_message), "No file name");
+			editor.clear_status_on_next_key = 1;
 		}
-		clear_screen_and_exit();
+		else if (save_current_file() != 0)
+		{
+			snprintf(editor.status_message, sizeof(editor.status_message),
+			         "Can't open \"%s\" for writing", editor.filename);
+			editor.clear_status_on_next_key = 1;
+		}
+		else
+		{
+			clear_screen_and_exit();
+		}
 	}
 	else if(strncmp(editor.command_buffer,"w ",2) == 0)
 	{
 		strcpy(editor.filename,editor.command_buffer + 2);
-		save_current_file();
+		if (save_current_file() != 0)
+		{
+			snprintf(editor.status_message, sizeof(editor.status_message),
+			         "Can't open \"%s\" for writing", editor.filename);
+		}
+		else
+		{
+			snprintf(editor.status_message, sizeof(editor.status_message),
+			         "\"%s\" saved", editor.filename);
+		}
+		editor.clear_status_on_next_key = 1;
 	}
 	editor.current_mode = normal_mode;
 	editor.command_length = 0;
@@ -418,7 +454,11 @@ void refresh_display()
 	write(STDOUT_FILENO,"\x1b[m",3); // normal colors
 	snprintf(position_buffer,sizeof(position_buffer),"\x1b[%d;1H",terminal_rows);
 	write(STDOUT_FILENO,position_buffer,strlen(position_buffer));
-	if(editor.current_mode == command_mode)
+	if (strlen(editor.status_message) > 0)
+	{
+		write(STDOUT_FILENO, editor.status_message, strlen(editor.status_message));
+	}
+	else if(editor.current_mode == command_mode)
 	{
 		write(STDOUT_FILENO,":",1);
 		write(STDOUT_FILENO,editor.command_buffer,editor.command_length);
@@ -496,7 +536,127 @@ void print_version()
 {
 	printf("Clive version %s\n", CLIVE_VERSION);
 }
+int is_word_char(char c)
+{
+	return isalnum(c) || c == '_';
+}
 
+void move_word_forward()
+{
+	char *line = editor.text_lines[editor.cursor_y];
+	int len = strlen(line);
+
+	// If the current line is empty, try moving to the next non-empty line
+	if (len == 0)
+	{
+		if (editor.cursor_y < editor.total_lines - 1)
+		{
+			editor.cursor_y++;
+			editor.cursor_x = 0;
+			line = editor.text_lines[editor.cursor_y];
+			len = strlen(line);
+			while (editor.cursor_x < len && isspace(line[editor.cursor_x]))
+				editor.cursor_x++;
+		}
+		return;
+	}
+
+	// Move past the current word or punctuation sequence
+	if (is_word_char(line[editor.cursor_x]))
+	{
+		while (editor.cursor_x < len && is_word_char(line[editor.cursor_x]))
+			editor.cursor_x++;
+	}
+	else if (!isspace(line[editor.cursor_x]))
+	{
+		while (editor.cursor_x < len && !is_word_char(line[editor.cursor_x]) && !isspace(line[editor.cursor_x]))
+			editor.cursor_x++;
+	}
+
+	// Skip any whitespace to land at the beginning of the next word
+	while (editor.cursor_x < len && isspace(line[editor.cursor_x]))
+		editor.cursor_x++;
+
+	// If we've reached the end of the line, move to the next line
+	if (editor.cursor_x >= len && editor.cursor_y < editor.total_lines - 1)
+	{
+		editor.cursor_y++;
+		editor.cursor_x = 0;
+		line = editor.text_lines[editor.cursor_y];
+		len = strlen(line);
+		while (editor.cursor_x < len && isspace(line[editor.cursor_x]))
+			editor.cursor_x++;
+	}
+}
+
+void move_word_backward()
+{
+	char *line = editor.text_lines[editor.cursor_y];
+	int len = strlen(line);
+
+	// Move back one character, or to the end of the previous line
+	if (editor.cursor_x > 0)
+	{
+		editor.cursor_x--;
+	}
+	else if (editor.cursor_y > 0)
+	{
+		editor.cursor_y--;
+		line = editor.text_lines[editor.cursor_y];
+		len = strlen(line);
+		editor.cursor_x = len;
+		if (editor.cursor_x == 0) return;
+		editor.cursor_x--;
+	}
+	else
+	{
+		return;
+	}
+
+	// Skip over non-word characters (punctuation, spaces) to find word start
+	while (editor.cursor_x > 0 && !is_word_char(line[editor.cursor_x]))
+	{
+		editor.cursor_x--;
+	}
+	// Walk back to the beginning of the current word
+	while (editor.cursor_x > 0 && is_word_char(line[editor.cursor_x - 1]))
+	{
+		editor.cursor_x--;
+	}
+}
+
+void move_word_end()
+{
+	char *line = editor.text_lines[editor.cursor_y];
+	int len = strlen(line);
+
+	// Move forward one character, or to the start of the next line
+	if (editor.cursor_x < len - 1)
+	{
+		editor.cursor_x++;
+	}
+	else if (editor.cursor_y < editor.total_lines - 1)
+	{
+		editor.cursor_y++;
+		editor.cursor_x = 0;
+		line = editor.text_lines[editor.cursor_y];
+		len = strlen(line);
+		if (len == 0) return;
+	}
+	else
+	{
+		return;
+	}
+
+	// Skip past non-word characters to reach the start of a word
+	while (editor.cursor_x < len && !is_word_char(line[editor.cursor_x]))
+	{
+		editor.cursor_x++;
+	}
+	// Move to the end of that word
+	while (editor.cursor_x < len - 1 && is_word_char(line[editor.cursor_x + 1]))
+		editor.cursor_x++;
+}
 void print_usage()
 {
 	print_version();
@@ -527,7 +687,7 @@ int main(int argument_count, char *argument_values[]) {
 			printf("Updating Clive...\n\n");
 			fflush(stdout);
 			const char *update_cmd =
-				"curl -fsSL https://raw.githubusercontent.com/jdeepak1218/clive/main/install.sh | bash";
+			    "curl -fsSL https://raw.githubusercontent.com/jdeepak1218/clive/main/install.sh | bash";
 			int result = system(update_cmd);
 			if (result == 0)
 			{
@@ -559,6 +719,11 @@ int main(int argument_count, char *argument_values[]) {
 
 		if (editor.current_mode == normal_mode)
 		{
+			if (editor.clear_status_on_next_key)
+			{
+				editor.status_message[0] = '\0';
+				editor.clear_status_on_next_key = 0;
+			}
 			if (user_input == 'i')
 			{
 				editor.current_mode = insert_mode;
@@ -569,12 +734,12 @@ int main(int argument_count, char *argument_values[]) {
 				editor.command_buffer[0] = '/';
 				editor.command_length = 1;
 			}
-            else if (user_input == '?')  // ← ADD THIS
-            {
-                editor.current_mode = command_mode;
-                editor.command_buffer[0] = '?';
-                editor.command_length = 1;
-            }
+			else if (user_input == '?')  // ← ADD THIS
+			{
+				editor.current_mode = command_mode;
+				editor.command_buffer[0] = '?';
+				editor.command_length = 1;
+			}
 			else if (user_input == ':')
 			{
 				editor.current_mode = command_mode;
@@ -604,6 +769,18 @@ int main(int argument_count, char *argument_values[]) {
 			else if (user_input == '$')
 			{
 				editor.cursor_x = strlen(editor.text_lines[editor.cursor_y]);
+			}
+			else if(user_input == 'w')
+			{
+				move_word_forward();
+			}
+			else if(user_input == 'b')
+			{
+				move_word_backward();
+			}
+			else if(user_input == 'e')
+			{
+				move_word_end();
 			}
 			else if (user_input == 'O')
 			{
@@ -712,6 +889,11 @@ int main(int argument_count, char *argument_values[]) {
 		}
 		else if (editor.current_mode == insert_mode)
 		{
+			if (editor.clear_status_on_next_key)
+			{
+				editor.status_message[0] = '\0';
+				editor.clear_status_on_next_key = 0;
+			}
 			if (user_input == '\x1b')
 			{
 				editor.current_mode = normal_mode;
@@ -736,6 +918,11 @@ int main(int argument_count, char *argument_values[]) {
 		}
 		else if (editor.current_mode == command_mode)
 		{
+			if (editor.clear_status_on_next_key)
+			{
+				editor.status_message[0] = '\0';
+				editor.clear_status_on_next_key = 0;
+			}
 			if (user_input == '\x1b')
 			{
 				editor.current_mode = normal_mode;
@@ -755,6 +942,5 @@ int main(int argument_count, char *argument_values[]) {
 			}
 		}
 	}
-
 	return 0;
 }
