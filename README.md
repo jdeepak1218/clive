@@ -34,7 +34,7 @@ Building a text editor from scratch strips away all abstractions and forces you 
 - Unsaved changes indicator to prevent accidental data loss
 - Clipboard support for copying and pasting lines
 - Bidirectional text search with pattern matching
-- Quick line navigation (jump to start/end of line)
+- Quick line navigation (jump to start/end of line, or jump to specific line via `:number`)
 
 ### Normal Mode Commands
 
@@ -162,6 +162,7 @@ make
 | `:q` | Quit editor | Blocked if unsaved changes |
 | `:q!` | Force quit | Discards unsaved changes |
 | `:wq` | Write and quit | Save then exit |
+| `:number` | Jump to line number | E.g., `:42` jumps to line 42 |
 | `/pattern` | Search forward | Moves cursor to match |
 | `?pattern` | Search backward | Moves cursor to match |
 | `Esc` | Cancel command | Return to normal mode |
@@ -180,6 +181,7 @@ make
 10. Copy a line with `y` and paste it below with `p`
 11. Delete entire lines quickly with `d`
 12. Use `0` and `$` to jump to line boundaries instantly
+13. Jump to any line instantly with `:42` (replace 42 with desired line number)
 
 ## Common Workflows
 
@@ -191,6 +193,13 @@ i                     # Enter insert mode
 Esc                   # Return to normal mode
 :w                    # Save
 :q                    # Quit
+```
+
+### Jumping to a Specific Line
+```bash
+:42                   # Jump directly to line 42
+:1                    # Jump to the first line
+:$                    # Jump to the last line (note: $ is not yet supported)
 ```
 
 ### Searching and Replacing Text
@@ -248,7 +257,7 @@ j j                   # Move down 2 lines
 - **Configuration**: Read settings from a .cliverc file
 - **Better Error Messages**: Display helpful messages in the status bar
 - **Word Movement**: Jump by words (w, b, e) instead of characters
-- **Jump to Line**: Go to specific line number (:123)
+
 
 ### Nice to Have
 - **Auto-indentation**: Maintain indentation on new lines

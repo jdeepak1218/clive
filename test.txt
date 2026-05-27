@@ -1,5 +1,3 @@
-Hello world
-This is a test file for clive
-Line three here
-Another line with Hello in it
-Final line
+my name is deepak 
+hey mani
+

@@ -289,6 +289,33 @@ void execute_command()
 		editor.command_length = 0;
 		return;
 	}
+	// Jump to line: if command is a number, go to that line
+	if (editor.command_length > 0)
+	{
+		int is_number = 1;
+		for (int i = 0; i < editor.command_length; i++)
+		{
+			if (!isdigit(editor.command_buffer[i]))
+			{
+				is_number = 0;
+				break;
+			}
+		}
+		if (is_number)
+		{
+			int line_number = atoi(editor.command_buffer);
+			if (line_number >= 1 && line_number <= editor.total_lines)
+			{
+				editor.cursor_y = line_number - 1;
+				int line_len = strlen(editor.text_lines[editor.cursor_y]);
+				if (editor.cursor_x > line_len)
+					editor.cursor_x = line_len;
+			}
+			editor.current_mode = normal_mode;
+			editor.command_length = 0;
+			return;
+		}
+	}
 	if(strcmp(editor.command_buffer,"q") == 0)
 	{
 		if(editor.has_unsaved_changes)
