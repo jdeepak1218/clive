@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="deepajai/clive"
+REPO="jdeepak1218/clive"
 VERSION="${1:-latest}"
 INSTALL_DIR="${2:-/usr/local/bin}"
 

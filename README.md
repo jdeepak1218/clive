@@ -95,7 +95,7 @@ Building a text editor from scratch strips away all abstractions and forces you 
 Install the latest version of Clive in one command — no compiler needed, works on Linux and macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/deepajai/clive/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jdeepak1218/clive/main/install.sh | bash
 ```
 
 After installation, you can use `clive` from anywhere:
