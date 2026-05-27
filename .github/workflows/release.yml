@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+            artifact: clive-linux-x86_64
+            cflags: ''
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+            artifact: clive-linux-arm64
+            cflags: ''
+          - os: macos-latest
+            target: macos-x86_64
+            artifact: clive-macos-x86_64
+            cflags: -arch x86_64
+          - os: macos-latest
+            target: macos-arm64
+            artifact: clive-macos-arm64
+            cflags: -arch arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: gcc ${{ matrix.cflags }} -Wall -Wextra -pedantic -std=c99 -o ${{ matrix.artifact }} clive.c
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

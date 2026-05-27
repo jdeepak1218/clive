@@ -90,6 +90,24 @@ Building a text editor from scratch strips away all abstractions and forces you 
 - `Esc` - Cancel command and return to normal mode
 - `Backspace` - Delete character in command buffer
 
+## Quick Install (One-Liner)
+
+Install the latest version of Clive in one command — no compiler needed, works on Linux and macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/deepajai/clive/main/install.sh | bash
+```
+
+After installation, you can use `clive` from anywhere:
+```bash
+clive myfile.txt
+```
+
+### What it does
+1. Detects your OS (Linux/macOS) and architecture (x86_64/ARM64)
+2. Downloads the matching pre-built binary from GitHub Releases
+3. Installs it to `/usr/local/bin`
+
 ## How to Build and Run
 
 ### Prerequisites
@@ -97,7 +115,7 @@ Building a text editor from scratch strips away all abstractions and forces you 
 - Unix-like operating system (Linux, macOS, WSL)
 - Terminal emulator
 
-### Building
+### Building from Source
 ```bash
 gcc -o clive clive.c -Wall -Wextra
 ```
