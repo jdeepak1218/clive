@@ -8,38 +8,38 @@ on:
 jobs:
   build:
     name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: linux-x86_64
-            artifact: clive-linux-x86_64
+          - target: linux-x86_64
+            runner: ubuntu-latest
             cflags: ''
-          - os: ubuntu-24.04-arm
-            target: linux-arm64
-            artifact: clive-linux-arm64
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
             cflags: ''
-          - os: macos-latest
-            target: macos-x86_64
-            artifact: clive-macos-x86_64
-            cflags: -arch x86_64
-          - os: macos-latest
-            target: macos-arm64
-            artifact: clive-macos-arm64
+          - target: macos-arm64
+            runner: macos-latest
             cflags: -arch arm64
+          - target: macos-x86_64
+            runner: macos-latest
+            cflags: -arch x86_64
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build
-        run: gcc ${{ matrix.cflags }} -Wall -Wextra -pedantic -std=c99 -o ${{ matrix.artifact }} clive.c
+      - name: Build clive-${{ matrix.target }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          gcc ${{ matrix.cflags }} -Wall -Wextra -pedantic -std=c99 \
+            -DCLIVE_VERSION=\"$VERSION\" \
+            -o clive-${{ matrix.target }} clive.c
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          name: clive-${{ matrix.target }}
+          path: clive-${{ matrix.target }}
 
   release:
     name: Create Release
@@ -55,6 +55,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Display structure
+        run: find artifacts -type f
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

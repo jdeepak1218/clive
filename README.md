@@ -108,6 +108,24 @@ clive myfile.txt
 2. Downloads the matching pre-built binary from GitHub Releases
 3. Installs it to `/usr/local/bin`
 
+### Checking your version
+```bash
+clive --version
+# Clive version v1.0.0
+```
+
+### Updating to the latest version
+```bash
+clive --update
+# or manually re-run the install:
+curl -fsSL https://raw.githubusercontent.com/jdeepak1218/clive/main/install.sh | bash
+```
+
+### Getting help
+```bash
+clive --help
+```
+
 ## How to Build and Run
 
 ### Prerequisites
@@ -184,6 +202,14 @@ make
 | `/pattern` | Search forward | Moves cursor to match |
 | `?pattern` | Search backward | Moves cursor to match |
 | `Esc` | Cancel command | Return to normal mode |
+
+### CLI Flags
+
+| Flag | Action |
+|------|--------|
+| `clive --version` / `-v` | Show installed version |
+| `clive --help` / `-h` | Show help and usage |
+| `clive --update` / `-u` | Update to the latest version |
 
 ## Usage Tips
 

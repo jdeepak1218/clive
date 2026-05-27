@@ -1,5 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -pedantic -std=c99
+VERSION ?= 1.0.0
+CFLAGS=-Wall -Wextra -pedantic -std=c99 -DCLIVE_VERSION=\"$(VERSION)\"
 
 # Default build
 clive: clive.c

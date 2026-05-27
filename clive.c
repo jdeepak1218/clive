@@ -11,6 +11,10 @@
 #define max_line_length 256
 #define ctrl_key(k) ((k) & 0x1f) //for ctrl q , ctrl s
 
+#ifndef CLIVE_VERSION
+#define CLIVE_VERSION "1.0.0"
+#endif
+
 typedef enum {normal_mode,command_mode,insert_mode} editor_mode;
 
 typedef struct {
@@ -488,12 +492,65 @@ void search_backward_from(int start_y, int start_x)
 		}
 	}
 }
+void print_version()
+{
+	printf("Clive version %s\n", CLIVE_VERSION);
+}
+
+void print_usage()
+{
+	print_version();
+	printf("Usage: clive [filename] [options]\n\n");
+	printf("Options:\n");
+	printf("  -v, --version     Show version information\n");
+	printf("  -h, --help        Show this help message\n");
+	printf("  -u, --update      Update Clive to the latest version\n\n");
+	printf("A minimal Vim-inspired terminal text editor.\n");
+}
+
 int main(int argument_count, char *argument_values[]) {
+	// Handle flags before terminal setup (no raw mode needed)
+	if (argument_count >= 2)
+	{
+		if (strcmp(argument_values[1], "--version") == 0 || strcmp(argument_values[1], "-v") == 0)
+		{
+			print_version();
+			return 0;
+		}
+		if (strcmp(argument_values[1], "--help") == 0 || strcmp(argument_values[1], "-h") == 0)
+		{
+			print_usage();
+			return 0;
+		}
+		if (strcmp(argument_values[1], "--update") == 0 || strcmp(argument_values[1], "-u") == 0)
+		{
+			printf("Updating Clive...\n\n");
+			fflush(stdout);
+			const char *update_cmd =
+				"curl -fsSL https://raw.githubusercontent.com/jdeepak1218/clive/main/install.sh | bash";
+			int result = system(update_cmd);
+			if (result == 0)
+			{
+				printf("\nClive has been updated to the latest version!\n");
+			}
+			else
+			{
+				printf("\nUpdate failed. Please try manually:\n");
+				printf("  curl -fsSL https://raw.githubusercontent.com/jdeepak1218/clive/main/install.sh | bash\n");
+			}
+			return result;
+		}
+	}
+
 	setup_raw_terminal();
 	initialize_editor();
 	if (argument_count >= 2)
 	{
-		load_file_into_editor(argument_values[1]);
+		// Skip if the argument is a flag we already handled above
+		if (argument_values[1][0] != '-')
+		{
+			load_file_into_editor(argument_values[1]);
+		}
 	}
 	while (1)
 	{
