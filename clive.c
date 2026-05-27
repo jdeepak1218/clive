@@ -29,7 +29,7 @@ typedef struct {
 	char clipboard[max_line_length];
 	int has_clipboard;  //(0 -> empty 1 -> has something)
 	char last_search[256];
-	char status_message[256];
+	char status_message[512];
 	int clear_status_on_next_key;
 } text_editor;
 
