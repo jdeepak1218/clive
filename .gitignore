@@ -23,3 +23,8 @@ clive.exe
 # OS files
 .DS_Store
 Thumbs.dbtest.txt 
+
+
+#test files
+test.txt
+test_wbe.txt
