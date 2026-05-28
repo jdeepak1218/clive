@@ -116,7 +116,7 @@ clive myfile.txt
 ### Checking your version
 ```bash
 clive --version
-# Clive version v1.0.0
+# Clive version v1.3.0
 ```
 
 ### Updating to the latest version

@@ -35,7 +35,7 @@ typedef struct
 
 
 #ifndef CLIVE_VERSION
-#define CLIVE_VERSION "1.0.0"
+#define CLIVE_VERSION "1.3.0"
 #endif
 
 typedef enum {normal_mode,command_mode,insert_mode} editor_mode;
