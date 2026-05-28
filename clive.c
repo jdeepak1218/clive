@@ -9,7 +9,30 @@
 
 #define max_lines 1000
 #define max_line_length 256
+#define MAX_UNDO 100
 #define ctrl_key(k) ((k) & 0x1f) //for ctrl q , ctrl s
+
+static int undo_suppress = 0;
+
+typedef enum{
+	OP_NONE,
+	OP_INSERT_CHAR,
+	OP_DELETE_CHAR,
+	OP_SPLIT_LINE,
+	OP_JOIN_LINE,
+	OP_DELETE_LINE,
+	OP_PASTE_LINE,
+	OP_OPEN_LINE,
+}op_type;
+
+typedef struct
+{
+	op_type type;
+	int x;
+	int y;
+	char data[256];
+}undo_entry;
+
 
 #ifndef CLIVE_VERSION
 #define CLIVE_VERSION "1.0.0"
@@ -31,6 +54,10 @@ typedef struct {
 	char last_search[256];
 	char status_message[512];
 	int clear_status_on_next_key;
+	undo_entry undo_stack[MAX_UNDO];
+	int undo_count;
+	undo_entry redo_stack[MAX_UNDO];
+	int redo_count;
 } text_editor;
 
 struct termios original_terminal_settings;
@@ -39,6 +66,10 @@ text_editor editor;
 void clear_screen_and_exit();
 void search_forward_from(int start_y, int start_x);
 void search_backward_from(int start_y, int start_x);
+void push_undo(op_type type, int y, int x, const char *data);
+void clear_redo();
+void undo();
+void redo();
 void show_error_and_exit(const char *msg)
 {
 	perror(msg);
@@ -136,6 +167,8 @@ void initialize_editor()
 	editor.last_search[0] = '\0';
 	editor.status_message[0] = '\0';
 	editor.clear_status_on_next_key = 0;
+	editor.undo_count = 0;
+	editor.redo_count = 0;
 }
 
 void load_file_into_editor(const char *filename)
@@ -189,6 +222,9 @@ int save_current_file()
 
 void insert_character_at_cursor(char character)
 {
+	char ch_str[2] = {character, '\0'};
+	push_undo(OP_INSERT_CHAR, editor.cursor_y, editor.cursor_x, ch_str);
+	clear_redo();
 	int current_line_length = strlen(editor.text_lines[editor.cursor_y]);
 	if(current_line_length >= max_line_length - 1)return;
 	memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x + 1],&editor.text_lines[editor.cursor_y][editor.cursor_x],current_line_length - editor.cursor_x + 1);
@@ -200,6 +236,8 @@ void insert_character_at_cursor(char character)
 void split_line_at_cursor()
 {
 	if(editor.total_lines >= max_lines)return;
+	push_undo(OP_SPLIT_LINE, editor.cursor_y, editor.cursor_x, &editor.text_lines[editor.cursor_y][editor.cursor_x]);
+	clear_redo();
 	for(int line_number = editor.total_lines ; line_number > editor.cursor_y  + 1; line_number--)
 	{
 		strcpy(editor.text_lines[line_number],editor.text_lines[line_number - 1]);
@@ -217,12 +255,18 @@ void delete_character_before_cursor()
 	if(editor.cursor_x == 0 && editor.cursor_y == 0)return;
 	if(editor.cursor_x > 0)
 	{
+		char deleted = editor.text_lines[editor.cursor_y][editor.cursor_x - 1];
+		char ch_str[2] = {deleted, '\0'};
+		push_undo(OP_DELETE_CHAR, editor.cursor_y, editor.cursor_x - 1, ch_str);
+		clear_redo();
 		int current_line_length = strlen(editor.text_lines[editor.cursor_y]);
 		memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x - 1],&editor.text_lines[editor.cursor_y][editor.cursor_x],current_line_length - editor.cursor_x + 1);
 		editor.cursor_x--;
 	}
 	else
 	{
+		push_undo(OP_JOIN_LINE, editor.cursor_y - 1, strlen(editor.text_lines[editor.cursor_y - 1]), editor.text_lines[editor.cursor_y]);
+		clear_redo();
 		editor.cursor_y--;
 		editor.cursor_x = strlen(editor.text_lines[editor.cursor_y]);
 		strcat(editor.text_lines[editor.cursor_y],editor.text_lines[editor.cursor_y + 1]);
@@ -545,8 +589,6 @@ void move_word_forward()
 {
 	char *line = editor.text_lines[editor.cursor_y];
 	int len = strlen(line);
-
-	// If the current line is empty, try moving to the next non-empty line
 	if (len == 0)
 	{
 		if (editor.cursor_y < editor.total_lines - 1)
@@ -560,8 +602,6 @@ void move_word_forward()
 		}
 		return;
 	}
-
-	// Move past the current word or punctuation sequence
 	if (is_word_char(line[editor.cursor_x]))
 	{
 		while (editor.cursor_x < len && is_word_char(line[editor.cursor_x]))
@@ -572,12 +612,8 @@ void move_word_forward()
 		while (editor.cursor_x < len && !is_word_char(line[editor.cursor_x]) && !isspace(line[editor.cursor_x]))
 			editor.cursor_x++;
 	}
-
-	// Skip any whitespace to land at the beginning of the next word
 	while (editor.cursor_x < len && isspace(line[editor.cursor_x]))
 		editor.cursor_x++;
-
-	// If we've reached the end of the line, move to the next line
 	if (editor.cursor_x >= len && editor.cursor_y < editor.total_lines - 1)
 	{
 		editor.cursor_y++;
@@ -593,8 +629,6 @@ void move_word_backward()
 {
 	char *line = editor.text_lines[editor.cursor_y];
 	int len = strlen(line);
-
-	// Move back one character, or to the end of the previous line
 	if (editor.cursor_x > 0)
 	{
 		editor.cursor_x--;
@@ -608,17 +642,11 @@ void move_word_backward()
 		if (editor.cursor_x == 0) return;
 		editor.cursor_x--;
 	}
-	else
-	{
-		return;
-	}
-
-	// Skip over non-word characters (punctuation, spaces) to find word start
+	else return;
 	while (editor.cursor_x > 0 && !is_word_char(line[editor.cursor_x]))
 	{
 		editor.cursor_x--;
 	}
-	// Walk back to the beginning of the current word
 	while (editor.cursor_x > 0 && is_word_char(line[editor.cursor_x - 1]))
 	{
 		editor.cursor_x--;
@@ -629,8 +657,6 @@ void move_word_end()
 {
 	char *line = editor.text_lines[editor.cursor_y];
 	int len = strlen(line);
-
-	// Move forward one character, or to the start of the next line
 	if (editor.cursor_x < len - 1)
 	{
 		editor.cursor_x++;
@@ -647,13 +673,10 @@ void move_word_end()
 	{
 		return;
 	}
-
-	// Skip past non-word characters to reach the start of a word
 	while (editor.cursor_x < len && !is_word_char(line[editor.cursor_x]))
 	{
 		editor.cursor_x++;
 	}
-	// Move to the end of that word
 	while (editor.cursor_x < len - 1 && is_word_char(line[editor.cursor_x + 1]))
 		editor.cursor_x++;
 }
@@ -666,6 +689,298 @@ void print_usage()
 	printf("  -h, --help        Show this help message\n");
 	printf("  -u, --update      Update Clive to the latest version\n\n");
 	printf("A minimal Vim-inspired terminal text editor.\n");
+}
+
+void push_undo(op_type type, int y, int x, const char *data)
+{
+	if(undo_suppress) return;
+	if(editor.undo_count == MAX_UNDO)
+	{
+		// Stack full — shift everything left, dropping the oldest (index 0)
+		for(int i = 0; i < MAX_UNDO - 1; i++)
+		{
+			editor.undo_stack[i] = editor.undo_stack[i + 1];
+		}
+		editor.undo_count--;
+	}
+	editor.undo_stack[editor.undo_count].type = type;
+	editor.undo_stack[editor.undo_count].y = y;
+	editor.undo_stack[editor.undo_count].x = x;
+	if(data != NULL) strcpy(editor.undo_stack[editor.undo_count].data, data);
+	else editor.undo_stack[editor.undo_count].data[0] = '\0';
+	editor.undo_count++;
+}
+
+void clear_redo()
+{
+	if(undo_suppress) return;
+	editor.redo_count = 0;
+}
+
+void push_redo(op_type type, int y, int x, const char *data)
+{
+	if(editor.redo_count == MAX_UNDO)
+	{
+		for(int i = 0; i < MAX_UNDO - 1; i++)
+		{
+			editor.redo_stack[i] = editor.redo_stack[i + 1];
+		}
+		editor.redo_count--;
+	}
+	editor.redo_stack[editor.redo_count].type = type;
+	editor.redo_stack[editor.redo_count].y = y;
+	editor.redo_stack[editor.redo_count].x = x;
+	if(data != NULL) strcpy(editor.redo_stack[editor.redo_count].data, data);
+	else editor.redo_stack[editor.redo_count].data[0] = '\0';
+	editor.redo_count++;
+}
+
+void undo()
+{
+	if(editor.undo_count == 0) return;
+	editor.undo_count--;
+	undo_entry *op = &editor.undo_stack[editor.undo_count];
+	int len;
+
+	switch(op->type)
+	{
+	case OP_INSERT_CHAR:
+	{
+		// Reverse: delete the char that was inserted at (op->y, op->x)
+		// For redo: save the char we're about to delete
+		char c = editor.text_lines[op->y][op->x];
+		char ch_str[2] = {c, '\0'};
+		push_redo(OP_INSERT_CHAR, op->y, op->x, ch_str);
+
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		len = strlen(editor.text_lines[editor.cursor_y]);
+		if(editor.cursor_x < len)
+		{
+			memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x],
+				&editor.text_lines[editor.cursor_y][editor.cursor_x + 1],
+				len - editor.cursor_x);
+			editor.has_unsaved_changes = 1;
+		}
+		break;
+	}
+	case OP_DELETE_CHAR:
+	{
+		// Reverse: re-insert the deleted char at (op->y, op->x)
+		char ch_str[2];
+		// For redo: save whatever char is currently at this position
+		if(op->x < (int)strlen(editor.text_lines[op->y]))
+		{
+			ch_str[0] = editor.text_lines[op->y][op->x];
+			ch_str[1] = '\0';
+		}
+		else
+		{
+			ch_str[0] = '\0';
+		}
+		push_redo(OP_DELETE_CHAR, op->y, op->x, ch_str);
+
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		len = strlen(editor.text_lines[editor.cursor_y]);
+		if(len < max_line_length - 1)
+		{
+			memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x + 1],
+				&editor.text_lines[editor.cursor_y][editor.cursor_x],
+				len - editor.cursor_x + 1);
+			editor.text_lines[editor.cursor_y][editor.cursor_x] = op->data[0];
+			editor.cursor_x++;
+			editor.has_unsaved_changes = 1;
+		}
+		break;
+	}
+	case OP_SPLIT_LINE:
+	{
+		// Reverse: join the two lines back together
+		// For redo: save the text that will move to next line
+		push_redo(OP_SPLIT_LINE, op->y, op->x,
+			&editor.text_lines[op->y][op->x]);
+
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		// Restore current line: cut at cursor_x, append saved data
+		editor.text_lines[editor.cursor_y][editor.cursor_x] = '\0';
+		strcat(editor.text_lines[editor.cursor_y], op->data);
+		// Remove the next line (shift everything up)
+		for(int i = editor.cursor_y + 1; i < editor.total_lines - 1; i++)
+			strcpy(editor.text_lines[i], editor.text_lines[i + 1]);
+		editor.total_lines--;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	case OP_JOIN_LINE:
+	{
+		// Reverse: split the line back at (op->y, op->x)
+		// For redo: save the next line content that will be joined
+		push_redo(OP_JOIN_LINE, op->y, op->x,
+			editor.text_lines[op->y + 1]);
+
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		// Split at cursor_x — move text after cursor to new line
+		for(int i = editor.total_lines; i > editor.cursor_y + 1; i--)
+			strcpy(editor.text_lines[i], editor.text_lines[i - 1]);
+		strcpy(editor.text_lines[editor.cursor_y + 1],
+			&editor.text_lines[editor.cursor_y][editor.cursor_x]);
+		editor.text_lines[editor.cursor_y][editor.cursor_x] = '\0';
+		editor.total_lines++;
+		editor.cursor_y++;
+		editor.cursor_x = 0;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	case OP_DELETE_LINE:
+	{
+		// Reverse: re-insert the deleted line at op->y
+		// For redo: save whatever line is currently at op->y
+		push_redo(OP_DELETE_LINE, op->y, 0,
+			editor.text_lines[op->y]);
+
+		editor.cursor_y = op->y;
+		for(int i = editor.total_lines; i > editor.cursor_y; i--)
+			strcpy(editor.text_lines[i], editor.text_lines[i - 1]);
+		strcpy(editor.text_lines[editor.cursor_y], op->data);
+		editor.total_lines++;
+		editor.cursor_x = 0;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	case OP_PASTE_LINE:
+	{
+		// Reverse: delete the pasted line at op->y
+		// For redo: save the line we're about to delete
+		push_redo(OP_PASTE_LINE, op->y, 0,
+			editor.text_lines[op->y]);
+
+		editor.cursor_y = op->y;
+		for(int i = editor.cursor_y; i < editor.total_lines - 1; i++)
+			strcpy(editor.text_lines[i], editor.text_lines[i + 1]);
+		editor.total_lines--;
+		if(editor.cursor_y >= editor.total_lines)
+			editor.cursor_y = editor.total_lines - 1;
+		editor.cursor_x = 0;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	case OP_OPEN_LINE:
+	{
+		// Reverse: delete the empty line that was created
+		// For redo: save the line we're about to delete
+		push_redo(OP_OPEN_LINE, op->y, 0,
+			editor.text_lines[op->y]);
+
+		editor.cursor_y = op->y;
+		for(int i = editor.cursor_y; i < editor.total_lines - 1; i++)
+			strcpy(editor.text_lines[i], editor.text_lines[i + 1]);
+		editor.total_lines--;
+		if(editor.cursor_y >= editor.total_lines)
+			editor.cursor_y = editor.total_lines - 1;
+		editor.cursor_x = 0;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+void redo()
+{
+	if(editor.redo_count == 0) return;
+	editor.redo_count--;
+	undo_entry *op = &editor.redo_stack[editor.redo_count];
+	int len;
+
+	switch(op->type)
+	{
+	case OP_INSERT_CHAR:
+	{
+		// Re-apply: insert char at (op->y, op->x)
+		push_undo(OP_INSERT_CHAR, op->y, op->x, op->data);
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		undo_suppress = 1;
+		insert_character_at_cursor(op->data[0]);
+		undo_suppress = 0;
+		break;
+	}
+	case OP_DELETE_CHAR:
+	{
+		push_undo(OP_DELETE_CHAR, op->y, op->x, op->data);
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		len = strlen(editor.text_lines[editor.cursor_y]);
+		if(editor.cursor_x < len)
+		{
+			memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x],
+				&editor.text_lines[editor.cursor_y][editor.cursor_x + 1],
+				len - editor.cursor_x);
+			editor.has_unsaved_changes = 1;
+		}
+		break;
+	}
+	case OP_SPLIT_LINE:
+	{
+		push_undo(OP_SPLIT_LINE, op->y, op->x, op->data);
+		editor.cursor_y = op->y;
+		editor.cursor_x = op->x;
+		undo_suppress = 1;
+		split_line_at_cursor();
+		undo_suppress = 0;
+		break;
+	}
+	case OP_JOIN_LINE:
+	{
+		push_undo(OP_JOIN_LINE, op->y, op->x, op->data);
+		editor.cursor_y = op->y + 1;
+		editor.cursor_x = 0;
+		undo_suppress = 1;
+		delete_character_before_cursor();
+		undo_suppress = 0;
+		break;
+	}
+	case OP_DELETE_LINE:
+	{
+		push_undo(OP_DELETE_LINE, op->y, 0, op->data);
+		editor.cursor_y = op->y;
+		for(int i = editor.cursor_y; i < editor.total_lines - 1; i++)
+			strcpy(editor.text_lines[i], editor.text_lines[i + 1]);
+		editor.total_lines--;
+		if(editor.cursor_y >= editor.total_lines)
+			editor.cursor_y = editor.total_lines - 1;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	case OP_PASTE_LINE:
+	{
+		push_undo(OP_PASTE_LINE, op->y, 0, op->data);
+		editor.cursor_y = op->y;
+		for(int i = editor.total_lines; i > editor.cursor_y; i--)
+			strcpy(editor.text_lines[i], editor.text_lines[i - 1]);
+		strcpy(editor.text_lines[editor.cursor_y], op->data);
+		editor.total_lines++;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	case OP_OPEN_LINE:
+	{
+		push_undo(OP_OPEN_LINE, op->y, 0, op->data);
+		editor.cursor_y = op->y;
+		for(int i = editor.total_lines; i > editor.cursor_y; i--)
+			strcpy(editor.text_lines[i], editor.text_lines[i - 1]);
+		strcpy(editor.text_lines[editor.cursor_y], "");
+		editor.total_lines++;
+		editor.has_unsaved_changes = 1;
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 int main(int argument_count, char *argument_values[]) {
@@ -706,7 +1021,6 @@ int main(int argument_count, char *argument_values[]) {
 	initialize_editor();
 	if (argument_count >= 2)
 	{
-		// Skip if the argument is a flag we already handled above
 		if (argument_values[1][0] != '-')
 		{
 			load_file_into_editor(argument_values[1]);
@@ -786,6 +1100,8 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				if (editor.total_lines < max_lines)
 				{
+					push_undo(OP_OPEN_LINE, editor.cursor_y, 0, "");
+					clear_redo();
 					for (int line_number = editor.total_lines; line_number > editor.cursor_y; line_number--)
 					{
 						strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);
@@ -811,8 +1127,18 @@ int main(int argument_count, char *argument_values[]) {
 					search_backward_from(editor.cursor_y, editor.cursor_x);
 				}
 			}
+			else if (user_input == 'u')
+			{
+				undo();
+			}
+			else if (user_input == ctrl_key('r'))
+			{
+				redo();
+			}
 			else if (user_input == 'd')
 			{
+				push_undo(OP_DELETE_LINE, editor.cursor_y, 0, editor.text_lines[editor.cursor_y]);
+				clear_redo();
 				if (editor.total_lines > 1)
 				{
 					for (int line_number = editor.cursor_y; line_number < editor.total_lines - 1; line_number++)
@@ -849,6 +1175,8 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				if (editor.has_clipboard && editor.total_lines < max_lines)
 				{
+					push_undo(OP_PASTE_LINE, editor.cursor_y + 1, 0, editor.clipboard);
+					clear_redo();
 					for (int line_number = editor.total_lines; line_number > editor.cursor_y + 1; line_number--)
 					{
 						strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);
@@ -864,6 +1192,10 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				if (editor.cursor_x < (int)strlen(editor.text_lines[editor.cursor_y]))
 				{
+					char deleted = editor.text_lines[editor.cursor_y][editor.cursor_x];
+					char ch_str[2] = {deleted, '\0'};
+					push_undo(OP_DELETE_CHAR, editor.cursor_y, editor.cursor_x, ch_str);
+					clear_redo();
 					memmove(&editor.text_lines[editor.cursor_y][editor.cursor_x],
 					        &editor.text_lines[editor.cursor_y][editor.cursor_x + 1],
 					        strlen(editor.text_lines[editor.cursor_y]) - editor.cursor_x);
@@ -874,6 +1206,8 @@ int main(int argument_count, char *argument_values[]) {
 			{
 				if (editor.total_lines < max_lines)
 				{
+					push_undo(OP_OPEN_LINE, editor.cursor_y + 1, 0, "");
+					clear_redo();
 					for (int line_number = editor.total_lines; line_number > editor.cursor_y + 1; line_number--)
 					{
 						strcpy(editor.text_lines[line_number], editor.text_lines[line_number - 1]);

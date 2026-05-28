@@ -55,6 +55,8 @@ Building a text editor from scratch strips away all abstractions and forces you 
 - `O` - Open a new line above current line and enter insert mode
 - `x` - Delete character under cursor
 - `d` - Delete current line
+- `u` - Undo last change
+- `Ctrl+r` - Redo last undone change
 
 #### Copy and Paste
 - `y` - Yank (copy) current line to clipboard
@@ -182,6 +184,8 @@ make
 | `?text` | Search backward | Find "text" going up |
 | `n` | Next match | Jump to next search result |
 | `N` | Previous match | Jump to previous search result |
+| `u` | Undo | Revert the last change |
+| `Ctrl+r` | Redo | Re-apply a previously undone change |
 | `:` | Command mode | Execute editor commands |
 
 ### Insert Mode
@@ -233,6 +237,8 @@ make
 12. Delete entire lines quickly with `d`
 13. Use `0` and `$` to jump to line boundaries instantly
 14. Jump to any line instantly with `:42` (replace 42 with desired line number)
+15. Press `u` to undo mistakes — undo history supports up to 100 operations
+16. Use `Ctrl+r` to redo if you undo too far
 
 ## Common Workflows
 
@@ -287,7 +293,6 @@ j j                   # Move down 2 lines
 - Maximum 1000 lines per file
 - Maximum 256 characters per line
 - No syntax highlighting
-- No undo/redo functionality
 - Clipboard only holds one line at a time
 - No visual selection mode
 - No multi-line copy/paste operations
@@ -298,7 +303,6 @@ j j                   # Move down 2 lines
 ## Future Enhancements
 
 ### High Priority
-- **Undo/Redo**: Implement a command history stack to reverse changes
 - **Search and Replace**: Add `:s/old/new/` command for text substitution
 - **Visual Mode**: Select and manipulate blocks of text (v, V commands)
 - **Multi-line Clipboard**: Copy and paste multiple lines (dd, yy with counts)
