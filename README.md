@@ -43,6 +43,9 @@ Building a text editor from scratch strips away all abstractions and forces you 
 - `j` or `↓` - Move cursor down
 - `k` or `↑` - Move cursor up
 - `l` or `→` - Move cursor right
+- `w` - Jump forward to beginning of next word
+- `b` - Jump backward to beginning of current/previous word
+- `e` - Jump forward to end of current/next word
 - `0` - Jump to beginning of line
 - `$` - Jump to end of line
 
@@ -163,6 +166,9 @@ make
 | `k` | Move up | Navigate line by line |
 | `l` | Move right | Navigate character by character |
 | `←↓↑→` | Arrow key movement | Alternative to hjkl |
+| `w` | Jump to next word start | Navigate by words forward |
+| `b` | Jump to previous word start | Navigate by words backward |
+| `e` | Jump to end of word | Navigate to end of current/next word |
 | `0` | Jump to line start | Quick navigation to beginning |
 | `$` | Jump to line end | Quick navigation to end |
 | `i` | Enter insert mode | Start typing at cursor |
@@ -219,13 +225,14 @@ make
 4. Use `:w` frequently to save your work
 5. The status bar shows `[+]` when you have unsaved changes
 6. Line numbers help you track your position in the file
-7. Use `h`, `j`, `k`, `l` for Vim-style navigation or arrow keys if you prefer
-8. Search with `/` for forward search or `?` for backward search
-9. After searching, use `n` to jump to next match or `N` for previous match
-10. Copy a line with `y` and paste it below with `p`
-11. Delete entire lines quickly with `d`
-12. Use `0` and `$` to jump to line boundaries instantly
-13. Jump to any line instantly with `:42` (replace 42 with desired line number)
+7. Use `h`, `j`, `k`, `l` for Vim-style character navigation or arrow keys if you prefer
+8. Use `w`, `b`, `e` for Vim-style word navigation — jump between words quickly
+9. Search with `/` for forward search or `?` for backward search
+10. After searching, use `n` to jump to next match or `N` for previous match
+11. Copy a line with `y` and paste it below with `p`
+12. Delete entire lines quickly with `d`
+13. Use `0` and `$` to jump to line boundaries instantly
+14. Jump to any line instantly with `:42` (replace 42 with desired line number)
 
 ## Common Workflows
 
@@ -266,6 +273,9 @@ d                     # Delete a line you don't need
 
 ### Quick Navigation
 ```bash
+w w w                 # Jump forward 3 words
+b                     # Jump back one word
+e                     # Jump to end of current word
 0                     # Jump to start of line
 $                     # Jump to end of line
 k k k                 # Move up 3 lines
@@ -300,9 +310,6 @@ j j                   # Move down 2 lines
 - **Multiple Buffers**: Edit multiple files in one session
 - **Configuration**: Read settings from a .cliverc file
 - **Better Error Messages**: Display helpful messages in the status bar
-- **Word Movement**: Jump by words (w, b, e) instead of characters
-
-
 ### Nice to Have
 - **Auto-indentation**: Maintain indentation on new lines
 - **Line Wrapping**: Handle lines longer than terminal width
